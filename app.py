@@ -5,6 +5,9 @@ import unicodedata
 from abc import ABC, abstractmethod
 from flask import Flask, request, jsonify
 
+# 設定檔
+import config as cfg
+
 class OrderValidator(ABC):
     @abstractmethod
     def validate(self, order_data):
@@ -71,8 +74,8 @@ class PriceTransformer(OrderTransformer):
         '''
         1. 若訂單價格超過 2000，則回傳錯誤
         '''
-        if int(order_data["price"]) > 2000:
-            return {"error": "Bad Request", "message": "Price is over 2000."}
+        if int(order_data["price"]) > cfg.MAX_PRICE:
+            return {"error": "Bad Request", "message": f"Price is over {cfg.MAX_PRICE}."}
         return order_data
 
 class CurrencyTransformer(OrderTransformer):
@@ -83,11 +86,11 @@ class CurrencyTransformer(OrderTransformer):
         '''
         order_currency = order_data["currency"]
 
-        if order_currency not in ["TWD", "USD"]:
+        if order_currency not in cfg.ALLOWED_CURRENCIES:
             return {"error": "Bad Request", "message": "Currency format is wrong."}
 
         if order_currency == "USD":
-            order_data["price"] = str(int(order_data["price"]) * 31)
+            order_data["price"] = str(int(order_data["price"]) * cfg.USD_TO_TWD_RATE)
             order_data["currency"] = "TWD"
         return order_data
 
