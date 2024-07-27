@@ -27,29 +27,28 @@ LIMIT 10;
 
 1. EXPLAIN 效能分析：
     
-    使用 `EXPLAIN` 來分析查詢，以及是否存在全表掃描等效能問題。
+    - 使用 `EXPLAIN` 來分析查詢，以及是否存在全表掃描等效能問題。
 
 2. 新增索引：
 
-    基於分析結果，檢查相關表是否有合適的索引。
-    例如：
+    - 基於分析結果，檢查相關表是否有合適的索引。例如：
 
-    - orders 表的 `bnb_id`, `currency`, `created_at` 欄位。
-    - bnbs 表的主鍵 `id`。
+        - orders 表的 `bnb_id`, `currency`, `created_at` 欄位。
+        - bnbs 表的主鍵 `id`。
 
-    確保 `orders.bnb_id` 和 `bnbs.id` 上有索引，以加速 JOIN 聯結。
+    - 確保 `orders.bnb_id` 和 `bnbs.id` 上有索引，以加速 JOIN 聯結。
 
 3. 使用子查詢或臨時表：
 
-    若 orders 資料量非常大，可以考慮先篩選出符合條件的訂單，然後再進行 JOIN。
+    - 若 orders 資料量非常大，可以考慮先篩選出符合條件的訂單，然後再進行 JOIN。
 
 4. 分區表：
 
-    若 orders 資料量非常大，可以考慮按月份或年份進行分區，這樣可以減少需要掃描的資料量。
+    - 若 orders 資料量非常大，可以考慮按月份或年份進行分區，這樣可以減少需要掃描的資料量。
 
 5. 硬體配置優化：
 
-    檢查 MySQL 的設定參數，如 `innodb_buffer_pool_size`，確保分配了足夠的記憶體。同時，也可考慮增加 RAM 和使用 SSD，以提升速度。
+    - 檢查 MySQL 的設定參數，如 `innodb_buffer_pool_size`，確保分配了足夠的記憶體。同時，也可考慮增加 RAM 和使用 SSD，以提升速度。
 
 ## API 實作測驗
 
@@ -124,13 +123,15 @@ LIMIT 10;
 python unittest.py -v
 ```
 
+![unittest](./images/unittest.png)
+
 | Test Case | Description | Result |
 | --- | --- | --- |
 | [Structure]test_valid_structure | 合法的 JSON 結構 | ok |
 | [Structure]test_invalid_structure | 非法的 JSON 結構 | ok |
-| [Name]test_non_capitalized_name | 非大寫字母開頭的名字 | invalid name |
-| [Name]test_non_english_name | 含有非英文字元的名字 | Invalid 名字 |
-| [Name]test_valid_name | 合法的名字 | Valid Name |
+| [Name]test_non_capitalized_name | 非大寫字母開頭的名字 | ok |
+| [Name]test_non_english_name | 含有非英文字元的名字 | ok |
+| [Name]test_valid_name | 合法的名字 | ok |
 | [Price]test_valid_price | 合法的價格 | ok |
 | [Price]test_price_over_2000 | 價格超過 2000 | ok |
 | [Currency]test_invalid_currency | 錯誤的幣別 | ok |
@@ -139,9 +140,3 @@ python unittest.py -v
 | [Order]test_valid_order | 合法的訂單 | ok |
 | [Order]test_invalid_structure | 非法的 JSON 結構 | ok |
 | [Order]test_transformation_error | 轉換過程中發生錯誤 | ok |
-
-
-
-
-
-
