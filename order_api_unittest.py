@@ -4,8 +4,9 @@ import unittest
 from unittest.mock import Mock
 from app import (
     StructureValidator, NameTransformer, PriceTransformer, 
-    CurrencyTransformer, OrderProcessor
+    CurrencyTransformer, OrderProcessor, OrderProcessingError
 )
+import config as cfg
 
 class TestStructureValidator(unittest.TestCase):
     def setUp(self):
@@ -39,7 +40,8 @@ class TestStructureValidator(unittest.TestCase):
             "price": "1000",
             "currency": "TWD"
         }
-        self.assertFalse(self.validator.validate(invalid_order))
+        with self.assertRaises(OrderProcessingError):
+            self.validator.validate(invalid_order)
 
 class TestNameTransformer(unittest.TestCase):
     def setUp(self):
@@ -54,16 +56,16 @@ class TestNameTransformer(unittest.TestCase):
     def test_non_english_name(self):
         ''' 含有非英文字元的名字 '''
         order = {"name": "Invalid 名字"}
-        result = self.transformer.transform(order)
-        self.assertIn("error", result)
-        self.assertEqual(result["message"], "Name contains non-English characters.")
+        with self.assertRaises(OrderProcessingError) as context:
+            self.transformer.transform(order)
+        self.assertEqual(str(context.exception), "Name contains non-English characters.")
 
     def test_non_capitalized_name(self):
         ''' 非大寫字母開頭的名字 '''
         order = {"name": "invalid name"}
-        result = self.transformer.transform(order)
-        self.assertIn("error", result)
-        self.assertEqual(result["message"], "Name is not capitalized.")
+        with self.assertRaises(OrderProcessingError) as context:
+            self.transformer.transform(order)
+        self.assertEqual(str(context.exception), "Name is not capitalized.")
 
 class TestPriceTransformer(unittest.TestCase):
     def setUp(self):
@@ -75,12 +77,12 @@ class TestPriceTransformer(unittest.TestCase):
         result = self.transformer.transform(order)
         self.assertEqual(result, order)
 
-    def test_price_over_2000(self):
-        ''' 價格超過 2000 '''
-        order = {"price": "2001"}
-        result = self.transformer.transform(order)
-        self.assertIn("error", result)
-        self.assertEqual(result["message"], "Price is over 2000.")
+    def test_price_over_max(self):
+        ''' 價格超過最大限制 '''
+        order = {"price": str(cfg.MAX_PRICE + 1)}
+        with self.assertRaises(OrderProcessingError) as context:
+            self.transformer.transform(order)
+        self.assertEqual(str(context.exception), f"Price is over {cfg.MAX_PRICE}.")
 
 class TestCurrencyTransformer(unittest.TestCase):
     def setUp(self):
@@ -97,14 +99,14 @@ class TestCurrencyTransformer(unittest.TestCase):
         order = {"currency": "USD", "price": "100"}
         result = self.transformer.transform(order)
         self.assertEqual(result["currency"], "TWD")
-        self.assertEqual(result["price"], "3100")
+        self.assertEqual(result["price"], str(int(100 * cfg.USD_TO_TWD_RATE)))
 
     def test_invalid_currency(self):
         ''' 錯誤的幣別 '''
         order = {"currency": "EUR", "price": "100"}
-        result = self.transformer.transform(order)
-        self.assertIn("error", result)
-        self.assertEqual(result["message"], "Currency format is wrong.")
+        with self.assertRaises(OrderProcessingError) as context:
+            self.transformer.transform(order)
+        self.assertEqual(str(context.exception), "Currency format is wrong.")
 
 class TestOrderProcessor(unittest.TestCase):
     def setUp(self):
@@ -126,7 +128,7 @@ class TestOrderProcessor(unittest.TestCase):
     def test_invalid_structure(self):
         ''' 非法的 JSON 結構 '''
         order_data = {"test": "data"}
-        self.validator.validate.return_value = False
+        self.validator.validate.side_effect = OrderProcessingError("Invalid JSON received")
 
         result, status_code = self.processor.process(order_data)
         self.assertEqual(status_code, 400)
@@ -137,12 +139,12 @@ class TestOrderProcessor(unittest.TestCase):
         ''' 轉換過程中發生錯誤 '''
         order_data = {"test": "data"}
         self.validator.validate.return_value = True
-        self.transformers[0].transform.return_value = {"error": "Test error", "message": "Test message"}
+        self.transformers[0].transform.side_effect = OrderProcessingError("Test error")
 
         result, status_code = self.processor.process(order_data)
         self.assertEqual(status_code, 400)
         self.assertIn("error", result)
-        self.assertEqual(result["message"], "Test message")
+        self.assertEqual(result["message"], "Test error")
 
 if __name__ == '__main__':
     unittest.main()

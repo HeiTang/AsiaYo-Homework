@@ -12,6 +12,12 @@ import config as cfg
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+class OrderProcessingError(Exception):
+    def __init__(self, message, error_type="Bad Request"):
+        self.message = message
+        self.error_type = error_type
+        super().__init__(self.message)
+
 class OrderValidator(ABC):
     @abstractmethod
     def validate(self, order_data):
@@ -34,22 +40,21 @@ class StructureValidator(OrderValidator):
     def validate(self, order_data, expected = expected_structure):
         # 檢查 order_data 是否為 dict
         if not isinstance(order_data, dict):
-            return False
+            raise OrderProcessingError("Invalid order data structure")
 
         # 遞迴檢查 order_data 是否符合預期的資料結構與型態
         for key, value_type in expected.items():
             # 檢查 key 是否存在
             if key not in order_data:
-                return False
+                raise OrderProcessingError(f"Missing key: {key}")
 
             # 若 value 的 為型態為 dict，則遞迴檢查
             if isinstance(value_type, dict):
                 if not self.validate(order_data[key], value_type):
                     return False
-
             # 檢查 order_data 的 value 是否為指定型態
             elif not isinstance(order_data[key], value_type):
-                return False
+                raise OrderProcessingError(f"Invalid type for key {key}")
         return True
 
 class OrderTransformer(ABC):
@@ -66,10 +71,10 @@ class NameTransformer(OrderTransformer):
         normalized_str = unicodedata.normalize('NFKD', order_data["name"])
 
         if not re.match("^[A-Za-z ]+$", normalized_str):
-            return {"error": "Bad Request", "message": "Name contains non-English characters."}
+            raise OrderProcessingError("Name contains non-English characters.")
 
         if not order_data["name"].istitle():
-            return {"error": "Bad Request", "message": "Name is not capitalized."}
+            raise OrderProcessingError("Name is not capitalized.")
 
         return order_data
 
@@ -79,7 +84,7 @@ class PriceTransformer(OrderTransformer):
         1. 若訂單價格超過 2000，則回傳錯誤
         '''
         if int(order_data["price"]) > cfg.MAX_PRICE:
-            return {"error": "Bad Request", "message": f"Price is over {cfg.MAX_PRICE}."}
+            raise OrderProcessingError(f"Price is over {cfg.MAX_PRICE}.")
         return order_data
 
 class CurrencyTransformer(OrderTransformer):
@@ -91,7 +96,7 @@ class CurrencyTransformer(OrderTransformer):
         order_currency = order_data["currency"]
 
         if order_currency not in cfg.ALLOWED_CURRENCIES:
-            return {"error": "Bad Request", "message": "Currency format is wrong."}
+            raise OrderProcessingError("Currency format is wrong.")
 
         if order_currency == "USD":
             order_data["price"] = str(int(order_data["price"]) * cfg.USD_TO_TWD_RATE)
@@ -105,20 +110,20 @@ class OrderProcessor:
         self.transformers = transformers
 
     def process(self, order_data):
-        logger.info("Starting order processing")
-        if not self.validator.validate(order_data):
-            logger.error("Invalid JSON received")
-            return {"error": "Bad Request", "message": "Invalid JSON received"}, 400
-        
-        for transformer in self.transformers:
-            order_data = transformer.transform(order_data)
-            logger.info(f"Applied transformer: {transformer.__class__.__name__}")
-            if "error" in order_data:
-                logger.error("Order processing failed")
-                return order_data, 400
+        try:
+            logger.info("Starting order processing")
+            if not self.validator.validate(order_data):
+                raise OrderProcessingError("Invalid JSON received")
 
-        logger.info("Order processing completed successfully")
-        return {"Success": "Order is processed.", "Order_data": order_data}, 200
+            for transformer in self.transformers:
+                order_data = transformer.transform(order_data)
+                logger.info(f"Applied transformer: {transformer.__class__.__name__}")
+
+            logger.info("Order processing completed successfully")
+            return {"Success": "Order is processed.", "Order_data": order_data}, 200
+        except OrderProcessingError as e:
+            logger.error(f"Order processing failed: {str(e)}")
+            return {"error": e.error_type, "message": str(e)}, 400
 
 app = Flask(__name__)
 
