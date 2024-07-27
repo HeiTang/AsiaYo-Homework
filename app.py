@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import re
+import logging
 import unicodedata
 from abc import ABC, abstractmethod
 from flask import Flask, request, jsonify
 
 # 設定檔
 import config as cfg
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class OrderValidator(ABC):
     @abstractmethod
@@ -92,6 +96,7 @@ class CurrencyTransformer(OrderTransformer):
         if order_currency == "USD":
             order_data["price"] = str(int(order_data["price"]) * cfg.USD_TO_TWD_RATE)
             order_data["currency"] = "TWD"
+            logger.info(f"Converted price from USD to TWD: {order_data['price']}")
         return order_data
 
 class OrderProcessor:
@@ -100,14 +105,19 @@ class OrderProcessor:
         self.transformers = transformers
 
     def process(self, order_data):
+        logger.info("Starting order processing")
         if not self.validator.validate(order_data):
+            logger.error("Invalid JSON received")
             return {"error": "Bad Request", "message": "Invalid JSON received"}, 400
         
         for transformer in self.transformers:
             order_data = transformer.transform(order_data)
+            logger.info(f"Applied transformer: {transformer.__class__.__name__}")
             if "error" in order_data:
+                logger.error("Order processing failed")
                 return order_data, 400
 
+        logger.info("Order processing completed successfully")
         return {"Success": "Order is processed.", "Order_data": order_data}, 200
 
 app = Flask(__name__)
@@ -115,6 +125,7 @@ app = Flask(__name__)
 @app.route('/api/orders', methods=['POST'])
 def process_order():
     request_data = request.get_json()
+    logger.info("Received new order request")
     processor = OrderProcessor(
         StructureValidator(),
         [NameTransformer(), PriceTransformer(), CurrencyTransformer()]
