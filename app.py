@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import re
+import unicodedata
 from abc import ABC, abstractmethod
 from flask import Flask, request, jsonify
 
@@ -55,12 +56,8 @@ class NameTransformer(OrderTransformer):
         1. 訂單名稱若包含非英文字元(不含空格)，則回傳錯誤
         2. 訂單名稱若每個單字的字首字母非大寫，則回傳錯誤
         '''
-        import unicodedata
-
         normalized_str = unicodedata.normalize('NFKD', order_data["name"])
-        print(normalized_str)
-        # normalized_str = normalized_str.encode('ascii', 'ignore').decode('utf-8')
-        # print(normalized_str)
+
         if not re.match("^[A-Za-z ]+$", normalized_str):
             return {"error": "Bad Request", "message": "Name contains non-English characters."}
 
@@ -88,7 +85,7 @@ class CurrencyTransformer(OrderTransformer):
 
         if order_currency not in ["TWD", "USD"]:
             return {"error": "Bad Request", "message": "Currency format is wrong."}
-        
+
         if order_currency == "USD":
             order_data["price"] = str(int(order_data["price"]) * 31)
             order_data["currency"] = "TWD"
@@ -107,7 +104,7 @@ class OrderProcessor:
             order_data = transformer.transform(order_data)
             if "error" in order_data:
                 return order_data, 400
-        
+
         return {"Success": "Order is processed.", "Order_data": order_data}, 200
 
 app = Flask(__name__)
