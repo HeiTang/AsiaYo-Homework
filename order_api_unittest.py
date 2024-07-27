@@ -84,6 +84,13 @@ class TestPriceTransformer(unittest.TestCase):
             self.transformer.transform(order)
         self.assertEqual(str(context.exception), f"Price is over {cfg.MAX_PRICE}.")
 
+    def test_negative_price(self):
+        ''' 負數價格 '''
+        order = {"price": "-100"}
+        with self.assertRaises(OrderProcessingError) as context:
+            self.transformer.transform(order)
+        self.assertEqual(str(context.exception), "Price is negative.")
+
 class TestCurrencyTransformer(unittest.TestCase):
     def setUp(self):
         self.transformer = CurrencyTransformer()

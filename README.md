@@ -134,6 +134,7 @@ python unittest.py -v
 | [Name]test_valid_name | 合法的名字 | ok |
 | [Price]test_valid_price | 合法的價格 | ok |
 | [Price]test_price_over_2000 | 價格超過 2000 | ok |
+| [Price]test_price_negative | 負數價格 | ok |
 | [Currency]test_invalid_currency | 錯誤的幣別 | ok |
 | [Currency]test_twd_currency | TWD 幣別 | ok |
 | [Currency]test_usd_currency | USD 幣別 | ok |

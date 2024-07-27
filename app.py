@@ -82,9 +82,13 @@ class PriceTransformer(OrderTransformer):
     def transform(self, order_data):
         '''
         1. 若訂單價格超過 2000，則回傳錯誤
+        2. 若訂單價格為負數，則回傳錯誤
         '''
         if int(order_data["price"]) > cfg.MAX_PRICE:
             raise OrderProcessingError(f"Price is over {cfg.MAX_PRICE}.")
+        
+        if int(order_data["price"]) < 0:
+            raise OrderProcessingError("Price is negative.")
         return order_data
 
 class CurrencyTransformer(OrderTransformer):
