@@ -83,12 +83,22 @@ class PriceTransformer(OrderTransformer):
         '''
         1. 若訂單價格超過 2000，則回傳錯誤
         2. 若訂單價格為負數，則回傳錯誤
+        3. 依訂單幣別判斷訂單價格的小數位數是否正確
         '''
-        if int(order_data["price"]) > cfg.MAX_PRICE:
+        if float(order_data["price"]) > cfg.MAX_PRICE:
             raise OrderProcessingError(f"Price is over {cfg.MAX_PRICE}.")
         
-        if int(order_data["price"]) < 0:
+        if float(order_data["price"]) < 0:
             raise OrderProcessingError("Price is negative.")
+        
+        currency_decimal = cfg.ALLOWED_CURRENCIES[order_data["currency"]]
+        if currency_decimal == 0:
+            if not order_data["price"].isdigit():
+                raise OrderProcessingError("Price has decimal places.")
+        else:
+            pattern = r"^\d+\.?\d{0," + str(currency_decimal) + r"}$"
+            if not re.match(pattern, order_data["price"]):
+                raise OrderProcessingError("Price decimal places are wrong.")
         return order_data
 
 class CurrencyTransformer(OrderTransformer):
@@ -99,11 +109,11 @@ class CurrencyTransformer(OrderTransformer):
         '''
         order_currency = order_data["currency"]
 
-        if order_currency not in cfg.ALLOWED_CURRENCIES:
+        if order_currency not in cfg.ALLOWED_CURRENCIES.keys():
             raise OrderProcessingError("Currency format is wrong.")
 
         if order_currency == "USD":
-            order_data["price"] = str(int(order_data["price"]) * cfg.USD_TO_TWD_RATE)
+            order_data["price"] = str(round(float(order_data["price"]) * cfg.USD_TO_TWD_RATE))
             order_data["currency"] = "TWD"
             logger.info(f"Converted price from USD to TWD: {order_data['price']}")
         return order_data

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from app import (
     StructureValidator, NameTransformer, PriceTransformer, 
     CurrencyTransformer, OrderProcessor, OrderProcessingError
@@ -73,23 +73,46 @@ class TestPriceTransformer(unittest.TestCase):
 
     def test_valid_price(self):
         ''' 合法的價格 '''
-        order = {"price": "1000"}
+        order = {"price": "1000", "currency": "TWD"}
         result = self.transformer.transform(order)
         self.assertEqual(result, order)
 
     def test_price_over_max(self):
         ''' 價格超過最大限制 '''
-        order = {"price": str(cfg.MAX_PRICE + 1)}
+        order = {"price": str(cfg.MAX_PRICE + 1), "currency": "TWD"}
         with self.assertRaises(OrderProcessingError) as context:
             self.transformer.transform(order)
         self.assertEqual(str(context.exception), f"Price is over {cfg.MAX_PRICE}.")
 
     def test_negative_price(self):
         ''' 負數價格 '''
-        order = {"price": "-100"}
+        order = {"price": "-100", "currency": "TWD"}
         with self.assertRaises(OrderProcessingError) as context:
             self.transformer.transform(order)
         self.assertEqual(str(context.exception), "Price is negative.")
+
+    @patch('config.ALLOWED_CURRENCIES', {'TWD': 0, 'USD': 2})
+    def test_price_decimal_places(self):
+        ''' 測試不同貨幣的價格小數位數 '''
+        test_cases = [
+            # (幣別, 價格, 預期結果, 錯誤訊息)
+            ("TWD", "1000", True, None),
+            ("TWD", "1000.50", False, "Price has decimal places."),
+            ("USD", "1000", True, None),
+            ("USD", "1000.50", True, None),
+            ("USD", "1000.555", False, "Price decimal places are wrong."),
+        ]
+
+        for currency, price, should_pass, error_message in test_cases:
+            with self.subTest(currency=currency, price=price):
+                order = {"price": price, "currency": currency}
+                if should_pass:
+                    result = self.transformer.transform(order)
+                    self.assertEqual(result, order)
+                else:
+                    with self.assertRaises(OrderProcessingError) as context:
+                        self.transformer.transform(order)
+                    self.assertEqual(str(context.exception), error_message)
 
 class TestCurrencyTransformer(unittest.TestCase):
     def setUp(self):

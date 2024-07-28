@@ -60,6 +60,19 @@ LIMIT 10;
 
 - 單元測試：使用 Python unittest 撰寫單元測試，確保程式碼的正確性。
 
+- 額外功能：
+
+    - 使用設定檔 `config.py` 來設定環境變數。
+
+    - 使用 `logging` 模組來記錄程式執行過程。
+
+    - 針對負數價格進行驗證。
+
+    - 針對幣別及其輔幣進行驗證，例如：
+    
+        - TWD (台幣)：不包含小數點。
+        - USD (美元)：包含小數點，且小數點後最多 2 位。
+
 ### 使用說明
 
 - Docker Compose
@@ -135,6 +148,7 @@ python unittest.py -v
 | [Price]test_valid_price | 合法的價格 | ok |
 | [Price]test_price_over_2000 | 價格超過 2000 | ok |
 | [Price]test_price_negative | 負數價格 | ok |
+| [Price]test_price_decimal_places | 測試不同貨幣的價格小數位數 | ok |
 | [Currency]test_invalid_currency | 錯誤的幣別 | ok |
 | [Currency]test_twd_currency | TWD 幣別 | ok |
 | [Currency]test_usd_currency | USD 幣別 | ok |
